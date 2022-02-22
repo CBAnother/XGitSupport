@@ -1,0 +1,7 @@
+/.vs
+/XGitSupport/obj
+*.vshost.exe
+*.vshost.exe.config
+*.xml
+*.pdb
+/XGitSupport/bin/Debug/Datas
