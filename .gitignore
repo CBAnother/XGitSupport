@@ -5,3 +5,4 @@
 *.xml
 *.pdb
 /XGitSupport/bin/Debug/Datas
+/XGitSupport/bin/Debug/Cache

@@ -127,7 +127,7 @@ namespace XGitSupport
             {
                 if (XFile.Exists(file) == false)
                 {
-                    MessageBox.Show("文件 [{0}] 不存在, 无法进行记录", file);
+                    MessageBox.Show(string.Format("文件 [{0}] 不存在, 无法进行记录", file));
                     return;
                 }
             }
@@ -139,32 +139,9 @@ namespace XGitSupport
         #region Form response
         private void btnScan_Click(object sender, EventArgs e)
         {
-            var dirPath = tbxDirPath.Text;
-            List<string> dirPathLst = new List<string>()
-            {
-                dirPath
-            };
-
-            while (dirPathLst.Count != 0)
-            {
-                dirPath = dirPathLst[0];
-                dirPathLst.Remove(dirPath);
-
-                var subDirPathLst = XDirectory.GetDirs(dirPath);
-                var gitDir = subDirPathLst.Find(x => XDirectory.Direcotry(x) == ".git");
-                if (gitDir != null)
-                {
-                    var path = string.Format("{0}/config", gitDir);
-                    var lineLst = XFile.ReadLines(path);
-                    var urlLine = lineLst.Find(x => x.ToLower().StartsWith("\turl = "));
-                    var url = urlLine.Substring("\turl = ".Length);
-                    AddUrl(url);
-                }
-                else
-                {
-                    dirPathLst.AddRange(subDirPathLst);
-                }
-            }
+            var git = XGit.FromDir(tbxDirPath.Text);
+            if (git != null)
+                AddUrl(git.GetUrl());
         }
         private void cbxUrl_SelectedIndexChanged(object sender, EventArgs e)
         {

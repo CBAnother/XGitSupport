@@ -65,7 +65,7 @@ namespace XGitSupport
                 return _versionLst;
 
             var cacheDir = GetCacheDir();
-            DownloadRepository(cacheDir, _url, null, cover);
+            DownloadRepository(cacheDir, _url, null, cover, true);
 
             var ret = XConsole.RunCmdRet("cd {0}&&git log --pretty=oneline", cacheDir);
 
@@ -132,6 +132,41 @@ namespace XGitSupport
         {
             return "./Cache/" + GetName() + (id != null ? ("." + id) : "");
         }
+
+
+        public static XGit FromDir(string dir)
+        {
+            List<string> dirPathLst = new List<string>()
+            {
+                dir
+            };
+
+            while (dirPathLst.Count != 0)
+            {
+                dir = dirPathLst[0];
+                dirPathLst.Remove(dir);
+
+                var subDirPathLst = XDirectory.GetDirs(dir);
+                var gitDir = subDirPathLst.Find(x => XDirectory.Direcotry(x) == ".git");
+                if (gitDir != null)
+                {
+                    var path = string.Format("{0}/config", gitDir);
+                    var lineLst = XFile.ReadLines(path);
+                    var urlLine = lineLst.Find(x => x.ToLower().StartsWith("\turl = "));
+                    var url = urlLine.Substring("\turl = ".Length);
+
+                    XGit res = new XGit();
+                    res._url = url;
+
+                    return res;
+                }
+                else
+                {
+                    dirPathLst.AddRange(subDirPathLst);
+                }
+            }
+            return null;
+        }
         #endregion
 
         #region Private
@@ -140,7 +175,7 @@ namespace XGitSupport
         /// </summary>
         /// <param name="repositoryName"></param>
         /// <returns></returns>
-        private void DownloadRepository(string cacheDir, string url, string commit_id = null, bool cover = false)
+        private void DownloadRepository(string cacheDir, string url, string commit_id = null, bool cover = false, bool noCheckOut = false)
         {
             if (cover)
                 XDirectory.Delete(cacheDir);
@@ -148,7 +183,10 @@ namespace XGitSupport
             if (XDirectory.Exists(cacheDir))
                 return;
 
-            XConsole.RunCmdWait("git clone {0} {1}", url, cacheDir);
+            var cmd = string.Format("git clone {0} {1}", url, cacheDir);
+            if (noCheckOut)
+                cmd += " -n";
+            XConsole.RunCmdWait(cmd);
             if (commit_id != null)
             {
                 XConsole.RunCmdWait("cd {0}&&git reset --hard {1}", cacheDir, commit_id);
