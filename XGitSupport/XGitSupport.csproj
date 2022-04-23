@@ -47,8 +47,9 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="XiaoYi">
-      <HintPath>..\..\..\..\..\..\XiaoYi\Codes\XiaoYi\XiaoYi\bin\Debug\XiaoYi.dll</HintPath>
+    <Reference Include="XiaoYi, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\File\XiaoYi\Codes\XiaoYi\XiaoYi\bin\Debug\XiaoYi.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

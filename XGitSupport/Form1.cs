@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using XiaoYi;
@@ -174,6 +175,8 @@ namespace XGitSupport
         private void Form1_Load(object sender, EventArgs e)
         {
             XUI.AddToSaveList(this, tbxDirPath);
+            XUI.AddToSaveList(this, rtbxBranchList);
+            XUI.AddToSaveList(this, tbxCmpDir);
             XUI.LoadByList(this);
 
             _updateGroup = XFile.ReadLines("./Datas/UdpateDirs.txt");
@@ -226,11 +229,18 @@ namespace XGitSupport
                 var cmd = string.Format("E:&&cd {0}&&git status", dir);
                 var ret = XConsole.RunCmdRet(cmd);
                 ret = ret.Substring(ret.IndexOf(exitStr) + exitStr.Length + 2);
-                if (ret != "On branch master\nYour branch is up to date with 'origin/master'.\n\nnothing to commit, working tree clean\n")
+                if (!isClean(ret))
                 {
                     XUI.ItemAdd(this, lbxUnClean, XDirectory.Direcotry(dir) + "|" + dir);
                 }
             }
+        }
+        private bool isClean(string str)
+        {
+            string pattern = "On branch .+\\nYour branch is up to date with '.+'.\\n\\nnothing to commit, working tree clean\\n";
+            Regex regex = new Regex(pattern);
+            Match match = regex.Match(str);
+            return match.Success;
         }
         private void lbxUnClean_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -310,12 +320,25 @@ namespace XGitSupport
                 return;
             }
             var gitInfos = XFile.ReadLines(gitFile)[0].YusToObject<List<XGitInfo>>();
+            var branchLst = rtbxBranchList.Text.Split('\n').Select(x=>x.Replace("\r", "")).ToList();
 
             XUI.ItemClear(this, lbxOldVersion);
             foreach (var info in gitInfos)
             {
                 var git = _gitLst.Find(x => x.GetUrl() == info.url);
-                var commitLst = git.GetCommitIDLst(cbxFromServer.Checked);
+
+                List<XGitVersion> commitLst = null;
+                foreach(var branch in branchLst)
+                {
+                    var commitLstTmp = git.GetCommitIDLst(cbxFromServer.Checked, branch);
+                    if(commitLstTmp != null)
+                    {
+                        commitLst = commitLstTmp;
+                        break;
+                    }
+                }
+                if(commitLst == null)
+                    commitLst = git.GetCommitIDLst(cbxFromServer.Checked);
 
                 if (info.commit_id != commitLst[0].hash_code)
                 {
@@ -341,8 +364,8 @@ namespace XGitSupport
                 var info = gitInfos.Find(x => x.url == url);
                 var git = _gitLst.Find(x => x.GetUrl() == info.url);
 
-                var commitLst = git.GetCommitIDLst(false);
-                info.commit_id = commitLst[0].hash_code;
+                var commitLstTmp = git.GetCommitIDLst(false);
+                info.commit_id = commitLstTmp[0].hash_code;
             }
 
             XFile.WriteLines(gitFile, gitInfos.YusToJson());

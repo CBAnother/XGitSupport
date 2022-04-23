@@ -59,13 +59,14 @@ namespace XGitSupport
         {
             return _url.Substring(_url.LastIndexOf('/') + 1);
         }
-        public List<XGitVersion> GetCommitIDLst(bool cover = true)
+        public List<XGitVersion> GetCommitIDLst(bool cover = true, string branch = null)
         {
             if (_versionLst != null && _versionLst.Count != 0 && !cover)
                 return _versionLst;
 
             var cacheDir = GetCacheDir();
-            DownloadRepository(cacheDir, _url, null, cover, true);
+            if (!DownloadRepository(cacheDir, _url, null, cover, true, branch))
+                return null;
 
             var ret = XConsole.RunCmdRet("cd {0}&&git log --pretty=oneline", cacheDir);
 
@@ -175,22 +176,29 @@ namespace XGitSupport
         /// </summary>
         /// <param name="repositoryName"></param>
         /// <returns></returns>
-        private void DownloadRepository(string cacheDir, string url, string commit_id = null, bool cover = false, bool noCheckOut = false)
+        private bool DownloadRepository(string cacheDir, string url, string commit_id = null, bool cover = false, bool noCheckOut = false, string branch = null)
         {
             if (cover)
                 XDirectory.Delete(cacheDir);
 
             if (XDirectory.Exists(cacheDir))
-                return;
+                return false;
 
             var cmd = string.Format("git clone {0} {1}", url, cacheDir);
             if (noCheckOut)
                 cmd += " -n";
             XConsole.RunCmdWait(cmd);
+            if (branch != null)
+            {
+                var ret1 = XConsole.RunCmdRet("cd {0}&&git checkout \"{1}\"", cacheDir, branch);
+                if (ret1.Contains("did not match any file(s) known to git"))
+                    return false;
+            }
             if (commit_id != null)
             {
                 XConsole.RunCmdWait("cd {0}&&git reset --hard {1}", cacheDir, commit_id);
             }
+            return true;
         }
         #endregion
         #endregion

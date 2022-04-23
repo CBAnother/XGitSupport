@@ -56,6 +56,7 @@
             this.lbxOldVersion = new System.Windows.Forms.ListBox();
             this.btnUpdateXGit = new System.Windows.Forms.Button();
             this.btnCheckInVersion = new System.Windows.Forms.Button();
+            this.rtbxBranchList = new System.Windows.Forms.RichTextBox();
             this.SuspendLayout();
             // 
             // tbxDirPath
@@ -319,11 +320,20 @@
             this.btnCheckInVersion.UseVisualStyleBackColor = true;
             this.btnCheckInVersion.Click += new System.EventHandler(this.btnCheckInVersion_Click);
             // 
+            // rtbxBranchList
+            // 
+            this.rtbxBranchList.Location = new System.Drawing.Point(-1, 360);
+            this.rtbxBranchList.Name = "rtbxBranchList";
+            this.rtbxBranchList.Size = new System.Drawing.Size(60, 139);
+            this.rtbxBranchList.TabIndex = 24;
+            this.rtbxBranchList.Text = "";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1090, 536);
+            this.Controls.Add(this.rtbxBranchList);
             this.Controls.Add(this.btnCheckInVersion);
             this.Controls.Add(this.lbxOldVersion);
             this.Controls.Add(this.cbxFromServer);
@@ -390,6 +400,7 @@
         private System.Windows.Forms.ListBox lbxOldVersion;
         private System.Windows.Forms.Button btnUpdateXGit;
         private System.Windows.Forms.Button btnCheckInVersion;
+        private System.Windows.Forms.RichTextBox rtbxBranchList;
     }
 }
 
