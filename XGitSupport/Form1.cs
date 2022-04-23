@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using XiaoYi;
@@ -320,32 +321,65 @@ namespace XGitSupport
                 return;
             }
             var gitInfos = XFile.ReadLines(gitFile)[0].YusToObject<List<XGitInfo>>();
-            var branchLst = rtbxBranchList.Text.Split('\n').Select(x=>x.Replace("\r", "")).ToList();
 
             XUI.ItemClear(this, lbxOldVersion);
+            _cnt = 0;
             foreach (var info in gitInfos)
             {
                 var git = _gitLst.Find(x => x.GetUrl() == info.url);
 
-                List<XGitVersion> commitLst = null;
-                foreach(var branch in branchLst)
-                {
-                    var commitLstTmp = git.GetCommitIDLst(cbxFromServer.Checked, branch);
-                    if(commitLstTmp != null)
-                    {
-                        commitLst = commitLstTmp;
-                        break;
-                    }
-                }
-                if(commitLst == null)
-                    commitLst = git.GetCommitIDLst(cbxFromServer.Checked);
+                new Thread(Thread_GetNotNewestVersion) { IsBackground = true }.Start(info);
 
-                if (info.commit_id != commitLst[0].hash_code)
-                {
-                    XUI.ItemAdd(this, lbxOldVersion, string.Format("{0}|{1}", git.GetName(), git.GetUrl()));
-                }
+                AddCnt();
             }
         }
+
+        private int _cnt = 0;
+        private object _cntObj = new object();
+        private void AddCnt()
+        {
+            lock (_cntObj)
+            {
+                _cnt++;
+                XUI.SetText(this, this, _cnt.ToString());
+            }
+        }
+        private void SubCnt()
+        {
+            lock (_cntObj)
+            {
+                _cnt--;
+                XUI.SetText(this, this, _cnt.ToString());
+            }
+        }
+        private void Thread_GetNotNewestVersion(object obj)
+        {
+            var text = XUI.GetText(this, rtbxBranchList);
+            var branchLst = text.Split('\n').Select(x => x.Replace("\r", "")).ToList();
+
+            var info = obj as XGitInfo;
+            var git = _gitLst.Find(x => x.GetUrl() == info.url);
+            List<XGitVersion> commitLst = null;
+            foreach (var branch in branchLst)
+            {
+                var commitLstTmp = git.GetCommitIDLst(cbxFromServer.Checked, branch);
+                if (commitLstTmp != null)
+                {
+                    commitLst = commitLstTmp;
+                    break;
+                }
+            }
+            if (commitLst == null)
+                commitLst = git.GetCommitIDLst(cbxFromServer.Checked);
+
+            if (info.commit_id != commitLst[0].hash_code)
+            {
+                XUI.ItemAdd(this, lbxOldVersion, string.Format("{0}|{1}", git.GetName(), git.GetUrl()));
+            }
+
+            SubCnt();
+        }
+
         private void btnUpdateXGit_Click(object sender, EventArgs e)
         {
             var gitFile = tbxCmpDir.Text + "/info.xgit";
