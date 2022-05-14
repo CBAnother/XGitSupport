@@ -56,6 +56,8 @@
             this.lbxOldVersion = new System.Windows.Forms.ListBox();
             this.btnUpdateXGit = new System.Windows.Forms.Button();
             this.btnCheckInVersion = new System.Windows.Forms.Button();
+            this.btnCheckout = new System.Windows.Forms.Button();
+            this.tbxCheckout = new System.Windows.Forms.TextBox();
             this.rtbxBranchList = new System.Windows.Forms.RichTextBox();
             this.SuspendLayout();
             // 
@@ -327,6 +329,23 @@
             this.rtbxBranchList.Size = new System.Drawing.Size(60, 139);
             this.rtbxBranchList.TabIndex = 24;
             this.rtbxBranchList.Text = "";
+	    // 
+            // btnCheckout
+            // 
+            this.btnCheckout.Location = new System.Drawing.Point(751, 533);
+            this.btnCheckout.Name = "btnCheckout";
+            this.btnCheckout.Size = new System.Drawing.Size(75, 23);
+            this.btnCheckout.TabIndex = 25;
+            this.btnCheckout.Text = "一键检出";
+            this.btnCheckout.UseVisualStyleBackColor = true;
+            this.btnCheckout.Click += new System.EventHandler(this.btnCheckout_Click);
+            // 
+            // tbxCheckout
+            // 
+            this.tbxCheckout.Location = new System.Drawing.Point(832, 533);
+            this.tbxCheckout.Name = "tbxCheckout";
+            this.tbxCheckout.Size = new System.Drawing.Size(100, 21);
+            this.tbxCheckout.TabIndex = 26;
             // 
             // Form1
             // 
@@ -334,6 +353,8 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1090, 536);
             this.Controls.Add(this.rtbxBranchList);
+	    this.Controls.Add(this.tbxCheckout);
+            this.Controls.Add(this.btnCheckout);
             this.Controls.Add(this.btnCheckInVersion);
             this.Controls.Add(this.lbxOldVersion);
             this.Controls.Add(this.cbxFromServer);
@@ -400,7 +421,9 @@
         private System.Windows.Forms.ListBox lbxOldVersion;
         private System.Windows.Forms.Button btnUpdateXGit;
         private System.Windows.Forms.Button btnCheckInVersion;
-        private System.Windows.Forms.RichTextBox rtbxBranchList;
+        private System.Windows.Forms.Button btnCheckout;
+        private System.Windows.Forms.TextBox tbxCheckout;
+	private System.Windows.Forms.RichTextBox rtbxBranchList;
     }
 }
 

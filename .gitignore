@@ -4,5 +4,4 @@
 *.vshost.exe.config
 *.xml
 *.pdb
-/XGitSupport/bin/Debug/Datas
-/XGitSupport/bin/Debug/Cache
+/XGitSupport/bin/Debug/

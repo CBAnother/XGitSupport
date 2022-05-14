@@ -16,6 +16,7 @@ namespace XGitSupport
     public partial class Form1 : Form
     {
         #region Values
+        private ThreadRun _threadRun = new ThreadRun();
         private List<XGit> _gitLst = null;
         private XGit _curGit;
         private List<XGitVersion> _curGitVersionLst = null;
@@ -25,6 +26,7 @@ namespace XGitSupport
 
         private List<HashFile> hashA;
         private List<HashFile> hashB;
+        private log4net.ILog _log;
         #endregion
 
         #region Function
@@ -33,11 +35,17 @@ namespace XGitSupport
         {
             InitializeComponent();
 
-            _gitLst = XFile.ReadLines("./Datas/Url.txt").Select(x => {
-                var temp = new XGit();
-                temp.SetUrl(x);
-                return temp;
-            }).ToList();
+            _log = log4net.LogManager.GetLogger("");
+
+            if (XFile.Exists("./Datas/Url.txt"))
+                _gitLst = XFile.ReadLines("./Datas/Url.txt").Select(x =>
+                {
+                    var temp = new XGit();
+                    temp.SetUrl(x);
+                    return temp;
+                }).ToList();
+            else
+                _gitLst = new List<XGit>();
 
             if (_gitLst == null)
                 _gitLst = new List<XGit>();
@@ -320,44 +328,55 @@ namespace XGitSupport
                 MessageBox.Show("找不到 info.xgit, 无法进行操作");
                 return;
             }
+
+            //  重复 URL 检测, 如果有, 可能会导致后面线程出错
             var gitInfos = XFile.ReadLines(gitFile)[0].YusToObject<List<XGitInfo>>();
-
-            XUI.ItemClear(this, lbxOldVersion);
-            _cnt = 0;
-            foreach (var info in gitInfos)
+            for (int i = 0; i < gitInfos.Count - 1; i++)
             {
-                var git = _gitLst.Find(x => x.GetUrl() == info.url);
-
-                new Thread(Thread_GetNotNewestVersion) { IsBackground = true }.Start(info);
-
-                AddCnt();
+                for (int j = i + 1; j < gitInfos.Count; j++)
+                {
+                    if(gitInfos[i].url == gitInfos[j].url)
+                    {
+                        ShowMessage("有重复的 URL, 请先合并再进行查找");
+                        return;
+                    }
+                }
             }
+
+            if (!_threadRun.Start(
+                //  传递具体执行函数
+                delegate (object p) {
+                    var dir = p as XGitInfo;
+                    GetNotNewestVersion(dir);
+                },
+
+                //  传递参数 List
+                gitInfos.Select(x => (object)x).ToList(), 
+
+                //  传递回调函数
+                delegate() {
+                    ShowMessage("非最新引用列表更新完毕");
+                }))
+            {
+                MessageBox.Show("无法启动线程");
+            }
+            else
+            {
+                lbxOldVersion.Items.Clear();
+            }
+            return;
         }
 
-        private int _cnt = 0;
-        private object _cntObj = new object();
-        private void AddCnt()
+        private void GetNotNewestVersion(XGitInfo info)
         {
-            lock (_cntObj)
-            {
-                _cnt++;
-                XUI.SetText(this, this, _cnt.ToString());
-            }
-        }
-        private void SubCnt()
-        {
-            lock (_cntObj)
-            {
-                _cnt--;
-                XUI.SetText(this, this, _cnt.ToString());
-            }
-        }
-        private void Thread_GetNotNewestVersion(object obj)
-        {
+            //  获取分支列表, 优先从这些分支来获取版本号
             var text = XUI.GetText(this, rtbxBranchList);
-            var branchLst = text.Split('\n').Select(x => x.Replace("\r", "")).ToList();
+            var branchLst = text.Split('\n')
+                .Select(x => x.Replace("\r", ""))
+                .Where(x => x != "")
+                .ToList();
 
-            var info = obj as XGitInfo;
+            //  查找对应 git
             var git = _gitLst.Find(x => x.GetUrl() == info.url);
             List<XGitVersion> commitLst = null;
             foreach (var branch in branchLst)
@@ -369,6 +388,8 @@ namespace XGitSupport
                     break;
                 }
             }
+
+            //  未在分支中查询到时, 从 master 分支获取
             if (commitLst == null)
                 commitLst = git.GetCommitIDLst(cbxFromServer.Checked);
 
@@ -376,8 +397,6 @@ namespace XGitSupport
             {
                 XUI.ItemAdd(this, lbxOldVersion, string.Format("{0}|{1}", git.GetName(), git.GetUrl()));
             }
-
-            SubCnt();
         }
 
         private void btnUpdateXGit_Click(object sender, EventArgs e)
@@ -404,51 +423,58 @@ namespace XGitSupport
 
             XFile.WriteLines(gitFile, gitInfos.YusToJson());
         }
+        private bool inVersion(string dir)
+        {
+            var text = XConsole.RunCmdRet("E:&&cd \"{0}\"&&{1}",
+                dir,
+                "git log --pretty=format:\"<c1>%d</c1><c2>%s</c2>\" -1"
+                );
+            text = text.Substring(text.IndexOf("&exit") + 5);
+
+            var tag = XString.SubStr(text, "<c1>", "</c1>");
+            var content = XString.SubStr(text, "<c2>", "</c2>");
+
+            if (System.Text.RegularExpressions.Regex.IsMatch(tag, "BertVu.+6\\.[0-9]{1,4}\\.[0-9]{1,4}", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+                System.Text.RegularExpressions.Regex.IsMatch(content, "BertVu.+6\\.[0-9]{1,4}\\.[0-9]{1,4}", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        private int _threadCnt = 0;
+        private void ShowMessage(string fmt, params object[] p)
+        {
+            MessageBox.Show(string.Format(fmt, p));
+        }
+        private bool canRunThread()
+        {
+            if (_threadCnt != 0)
+            {
+                ShowMessage("仍有线程在运行中, 无法继续运行");
+                return false;
+            }
+            return true;
+        }
+        private void inVersionCheckOk()
+        {
+            ShowMessage("已完成 InVersion 检测");
+        }
+
         private void btnCheckInVersion_Click(object sender, EventArgs e)
         {
-            List<string> notInVersion = new List<string>();
-            foreach (var dir in _updateGroup)
+            if (!_threadRun.Start(delegate(object p) {
+                var dir = p.ToString();
+                if (!inVersion(dir))
+                    XUI.ItemAdd(this, lbxUnClean, XDirectory.Direcotry(dir) + "|" + dir);
+            }, _updateGroup.Select(x=>(object)x).ToList(), inVersionCheckOk))
             {
-                var text = XConsole.RunCmdRet("E:&&cd {0}&&git log --pretty=oneline", dir);
-                text = text.Substring(text.IndexOf("&exit") + 7);
-                var splitLst = text.Split('\n');
-                var hash = splitLst[0].Substring(0, splitLst[0].IndexOf(' '));
-
-                var verText = splitLst[0];
-
-                var ok = System.Text.RegularExpressions.Regex.IsMatch(verText, "BertVu.+6\\.[0-9]{1,4}\\.[0-9]{1,4}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                if (!ok)
-                {
-                    text = XConsole.RunCmdRet("E:&&cd {0}&&git tag", dir);
-                    text = text.Substring(text.IndexOf("&exit") + 7);
-                    if (text.Length > 0)
-                    {
-                        splitLst = text.Split('\n').Where(x => x != "").ToArray();
-                        var tagName = splitLst.Last();
-
-                        text = XConsole.RunCmdRet("E:&&cd {0}&&git show {1}", dir, tagName);
-                        text = text.Substring(text.IndexOf("&exit") + 7);
-
-                        var hash2 = XString.SubStr(text, " ", "\n");
-
-                        ok = hash == hash2;
-                    }
-                }
-                else
-                {
-
-                }
-
-                if (!ok)
-                {
-                    notInVersion.Add(XDirectory.Direcotry(dir));
-                }
+                MessageBox.Show("无法启动线程");
             }
-
-            if (notInVersion.Count > 0)
+            else
             {
-                MessageBox.Show(string.Format("以下文件夹不存在版本\r\n{0}", string.Join("\r\n", notInVersion.Select(x => "    " + x))));
+                lbxUnClean.Items.Clear();
             }
+            return;
         }
         private void btnImportGitFile_Click(object sender, EventArgs e)
         {
@@ -476,6 +502,24 @@ namespace XGitSupport
             var text = _curGitInfo.YusToJson();
             XUI.SetText(this, richTextBox1, text);
             Clipboard.SetText(text);
+        }
+
+        private void btnCheckout_Click(object sender, EventArgs e)
+        {
+            var exitStr = "&exit";
+
+            XUI.ItemClear(this, lbxUnClean);
+            foreach (var dir in _updateGroup)
+            {
+                //var cmd = string.Format("E:&&cd {0}&&git.exe checkout -f master --", dir);
+                var cmd = string.Format("E:&&cd {0}&&git branch -a", dir);
+                var ret = XConsole.RunCmdRet(cmd);
+                if(!ret.Contains("* master"))
+                {
+                    cmd = string.Format("E:&&cd {0}&&git.exe checkout -f master --", dir);
+                    XConsole.RunCmdRet(cmd);
+                }
+            }
         }
         #endregion
 

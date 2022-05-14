@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using XiaoYi;
 using System.Windows.Forms;
+using System.Text.RegularExpressions;
 
 namespace XGitSupport
 {
@@ -13,6 +14,8 @@ namespace XGitSupport
         #region Values
         private List<XGitVersion> _versionLst;
         private string _url;
+
+        private log4net.ILog _log = log4net.LogManager.GetLogger("");
         #endregion
 
         #region Function
@@ -59,6 +62,16 @@ namespace XGitSupport
         {
             return _url.Substring(_url.LastIndexOf('/') + 1);
         }
+
+        private static string GetMatchGroups(string pattern, string text)
+        {
+            Regex regex = new Regex(pattern);
+            Match match = regex.Match(text);
+            if (!match.Success)
+                return null;
+            return match.Groups[1].ToString();
+        }
+
         public List<XGitVersion> GetCommitIDLst(bool cover = true, string branch = null)
         {
             if (_versionLst != null && _versionLst.Count != 0 && !cover)
@@ -68,11 +81,18 @@ namespace XGitSupport
             if (!DownloadRepository(cacheDir, _url, null, cover, true, branch))
                 return null;
 
-            var ret = XConsole.RunCmdRet("cd {0}&&git log --pretty=oneline", cacheDir);
-
+            var ret = XConsole.RunCmdRet("cd {0}&&git log --pretty=format:\"<hash>%H</hash><tag_content>%d %s</tag_content>\"", cacheDir);
             var idx = ret.IndexOf("&exit");
             ret = ret.Substring(idx + "&exit".Length + 2);
             ret = XString.ReplaceAll(ret, "  ", " ");
+
+            Console.WriteLine("URL = {0}", _url);
+            //Debuger.WriteLog("", "XTest", "Ret = [{0}]", ret);
+
+            if (ret.Contains("your current branch 'master' does not have any commits yet"))
+            {
+                return null;
+            }
 
             var splitLst = ret.Split('\n').Where(x => x != "").ToList();
 
@@ -80,44 +100,16 @@ namespace XGitSupport
             foreach (var line in splitLst)
             {
                 var lineTemp = line;
+                var hash = GetMatchGroups("<hash>(.+)</hash>", lineTemp);
+                var tag = GetMatchGroups("<tag_content>(.+)</tag_content>", lineTemp);
+
                 XGitVersion temp = new XGitVersion();
+                temp.hash_code = hash;
+                temp.bert_version = "";
 
-                idx = lineTemp.IndexOf(' ');
-                temp.hash_code = lineTemp.Substring(0, idx);
-                lineTemp = lineTemp.Substring(idx + 1);
-
-                lineTemp = lineTemp.ToLower();
-                idx = lineTemp.IndexOf("bertvu");
-                if (idx != -1)
-                {
-                    lineTemp = lineTemp.Substring(idx + 6);
-                    while (lineTemp.StartsWith(" "))
-                        lineTemp = lineTemp.Substring(1);
-
-
-                    var min = -1;
-                    bool flag;
-                    for (int i = 0; i < lineTemp.Length; i++)
-                    {
-                        flag = false;
-                        if (lineTemp[i] >= '0' && lineTemp[i] <= '9')
-                            flag = true;
-                        if (lineTemp[i] == '+' || lineTemp[i] == '.')
-                            flag = true;
-
-                        if (!flag)
-                            break;
-
-                        min = i;
-                    }
-
-
-                    if (min != -1)
-                        temp.bert_version = lineTemp.Substring(0, min + 1);
-                    else
-                        temp.bert_version = "";
-                }
-
+                var ver = GetMatchGroups("(BERTVu[_ ]6\\.[0-9]{1,2}\\.[0-9]{1,4})", tag);
+                if (ver != null)
+                    temp.bert_version = ver;
 
                 res.Add(temp);
             }
